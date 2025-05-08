@@ -2,100 +2,71 @@ import streamlit as st
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime
+import numpy as np
 
-# CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="Proyección Importación Sportiva", layout="wide")
-st.title("📦 Proyección de Importación Sportiva 2025")
+st.set_page_config(page_title="Proyección de Importación - Sportiva", layout="wide")
 
-# AUTENTICACIÓN USANDO SECRETO: gcp_service_account
+# Autenticación con Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(
     st.secrets["gcp_service_account"], scope
 )
-client = gspread.authorize(credentials)
+gc = gspread.authorize(credentials)
 
-# CARGA DE DATOS DESDE GOOGLE SHEETS
-sheet = client.open("Proyecciones").worksheet("proyeccion_final")
-df = pd.DataFrame(sheet.get_all_records())
+# Conexión a la Google Sheet
+SPREADSHEET_NAME = "Proyecciones"
+sh = gc.open(SPREADSHEET_NAME)
 
-# CONVERSIÓN A NÚMEROS
-df["Utilidad Anual Estimada"] = pd.to_numeric(df["Utilidad Anual Estimada"], errors="coerce")
-df["Margen Promedio (%)"] = pd.to_numeric(df["Margen Promedio (%)"], errors="coerce")
-df["Proyección Anual Estimada"] = pd.to_numeric(df["Proyección Anual Estimada"], errors="coerce")
-# CONFIGURACIÓN GENERAL
-st.set_page_config(page_title="Proyección Importación Sportiva", layout="wide")
-st.title("📦 Proyección de Importación Sportiva 2025")
+# Leer todas las hojas que comienzan con ventas_
+ventas_dfs = []
+for hoja in sh.worksheets():
+    if hoja.title.startswith("ventas_"):
+        df = pd.DataFrame(hoja.get_all_records())
+        df["anio"] = hoja.title.split("_")[-1]
+        ventas_dfs.append(df)
 
-client = gspread.authorize(credentials)
+if not ventas_dfs:
+    st.error("No se encontraron hojas de ventas.")
+    st.stop()
 
-# ABRIR ARCHIVO PRINCIPAL
-spreadsheet = client.open("Proyecciones")
-sheet_names = [ws.title for ws in spreadsheet.worksheets() if ws.title.startswith("ventas_")]
+df_total = pd.concat(ventas_dfs, ignore_index=True)
 
-# LEER Y COMBINAR TODAS LAS HOJAS ventas_20XX
-df_list = []
-for name in sheet_names:
-    data = spreadsheet.worksheet(name).get_all_records()
-    df = pd.DataFrame(data)
-    df["Año"] = name.split("_")[1]
-    df_list.append(df)
+# Validaciones básicas
+if "Producto/Servicio" not in df_total.columns or "Cantidad" not in df_total.columns:
+    st.error("Las hojas deben tener columnas 'Producto/Servicio' y 'Cantidad'")
+    st.stop()
 
-# UNIR TODO
-ventas = pd.concat(df_list, ignore_index=True)
+# Agrupamos por producto
+df_agrupado = (
+    df_total.groupby("Producto/Servicio")["Cantidad"]
+    .agg(["sum", "count", "mean"])
+    .rename(columns={"sum": "total_vendido", "count": "frecuencia", "mean": "prom_mensual"})
+    .reset_index()
+)
 
-# ASEGURAR TIPOS NUMÉRICOS
-ventas["Cantidad"] = pd.to_numeric(ventas["Cantidad"], errors="coerce")
-ventas["Subtotal Bruto"] = pd.to_numeric(ventas["Subtotal Bruto"], errors="coerce")
-ventas["Costo neto unitario"] = pd.to_numeric(ventas["Costo neto unitario"], errors="coerce")
+# Proyección anual
+df_agrupado["proyeccion_2025"] = (df_agrupado["prom_mensual"] * 12).round().astype(int)
 
-# AGRUPAR POR PRODUCTO
-ventas["Costo Total"] = ventas["Cantidad"] * ventas["Costo neto unitario"]
-agrupado = ventas.groupby("Producto / Servicio").agg({
-    "Cantidad": "sum",
-    "Subtotal Bruto": "sum",
-    "Costo Total": "sum"
-}).reset_index()
-
-agrupado["Utilidad Anual Estimada"] = agrupado["Subtotal Bruto"] - agrupado["Costo Total"]
-agrupado["Margen Promedio (%)"] = (agrupado["Utilidad Anual Estimada"] / agrupado["Subtotal Bruto"]) * 100
-agrupado["Proyección Anual Estimada"] = agrupado["Cantidad"]
-
-# REORDENAR COLUMNAS
-df_final = agrupado[[
-    "Producto / Servicio", "Proyección Anual Estimada", "Cantidad", "Subtotal Bruto",
-    "Costo Total", "Utilidad Anual Estimada", "Margen Promedio (%)"
-]]
-
-# SOBRESCRIBIR HOJA proyeccion_final
+# Sobrescribimos la hoja proyeccion_final
 try:
-    spreadsheet.del_worksheet(spreadsheet.worksheet("proyeccion_final"))
-except:
-    pass  # Si no existe, no pasa nada
+    sh.del_worksheet(sh.worksheet("proyeccion_final"))
+except gspread.exceptions.WorksheetNotFound:
+    pass
 
-spreadsheet.add_worksheet(title="proyeccion_final", rows=str(len(df_final)+5), cols=str(len(df_final.columns)))
-spreadsheet.worksheet("proyeccion_final").update([df_final.columns.values.tolist()] + df_final.values.tolist())
+ws = sh.add_worksheet(title="proyeccion_final", rows="1000", cols="10")
+headers = df_agrupado.columns.tolist()
+ws.append_row(headers)
+ws.append_rows(df_agrupado.values.tolist())
 
-# FILTROS INTERACTIVOS
-df_final["Margen Promedio (%)"] = pd.to_numeric(df_final["Margen Promedio (%)"], errors="coerce")
-df_final["Utilidad Anual Estimada"] = pd.to_numeric(df_final["Utilidad Anual Estimada"], errors="coerce")
+st.success("✅ Hoja 'proyeccion_final' creada/actualizada exitosamente.")
 
-col1, col2 = st.columns(2)
-with col1:
-    min_util = st.slider("Filtrar por utilidad mínima ($)", 0, int(df_final["Utilidad Anual Estimada"].max(skipna=True)), 500000)
-with col2:
-    min_margen = st.slider("Filtrar por margen mínimo (%)", 0, 100, 30)
+# Mostrar en la app
+st.title("📦 Proyección de Importación Anual")
+st.dataframe(df_agrupado, use_container_width=True)
 
-# APLICAR FILTRO
-filtro = (df_final["Utilidad Anual Estimada"] >= min_util) & (df_final["Margen Promedio (%)"] >= min_margen)
-filtrados = df_final[filtro]
-
-# MOSTRAR RESULTADOS
-st.subheader(f"📊 Productos sugeridos: {len(filtrados)}")
-st.dataframe(filtrados, use_container_width=True)
-
-# RESUMEN
-st.markdown(f"""
-### 📈 Resumen General:
-- 🧮 Total proyectado a importar: **{int(filtrados['Proyección Anual Estimada'].sum()):,} unidades**
-- 💰 Utilidad estimada total: **${int(filtrados['Utilidad Anual Estimada'].sum()):,}**
-""")
+# Filtros
+with st.expander("🔍 Filtrar por producto"):
+    producto = st.selectbox("Selecciona un producto", options=[""] + df_agrupado["Producto/Servicio"].unique().tolist())
+    if producto:
+        st.dataframe(df_agrupado[df_agrupado["Producto/Servicio"] == producto])
