@@ -3,15 +3,29 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# CONFIGURACIÓN GENERAL
+# CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="Proyección Importación Sportiva", layout="wide")
 st.title("📦 Proyección de Importación Sportiva 2025")
 
-# CONECTAR CON GOOGLE SHEETS
+# AUTENTICACIÓN USANDO SECRETO: gcp_service_account
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(
     st.secrets["gcp_service_account"], scope
 )
+client = gspread.authorize(credentials)
+
+# CARGA DE DATOS DESDE GOOGLE SHEETS
+sheet = client.open("Proyecciones").worksheet("proyeccion_final")
+df = pd.DataFrame(sheet.get_all_records())
+
+# CONVERSIÓN A NÚMEROS
+df["Utilidad Anual Estimada"] = pd.to_numeric(df["Utilidad Anual Estimada"], errors="coerce")
+df["Margen Promedio (%)"] = pd.to_numeric(df["Margen Promedio (%)"], errors="coerce")
+df["Proyección Anual Estimada"] = pd.to_numeric(df["Proyección Anual Estimada"], errors="coerce")
+# CONFIGURACIÓN GENERAL
+st.set_page_config(page_title="Proyección Importación Sportiva", layout="wide")
+st.title("📦 Proyección de Importación Sportiva 2025")
+
 client = gspread.authorize(credentials)
 
 # ABRIR ARCHIVO PRINCIPAL
