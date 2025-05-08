@@ -2,30 +2,31 @@ import streamlit as st
 import pandas as pd
 import gspread
 import json
-from google.oauth2.service_account import Credentials
+from oauth2client.service_account import ServiceAccountCredentials
 
-# CONFIGURACIÓN
+# CONFIGURACIÓN DE LA APP
 st.set_page_config(page_title="Proyección Importación Sportiva", layout="wide")
 st.title("📦 Proyección de Importación Sportiva 2025")
+st.markdown("Visualiza y filtra los productos recomendados para importar basados en ventas históricas.")
 
-# CONEXIÓN A GOOGLE SHEETS USANDO STREAMLIT SECRETS
+# CONFIGURACIÓN DE CONEXIÓN A GOOGLE SHEETS USANDO STREAMLIT SECRETS
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials = Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=scope
-)
+
+# Cargar las credenciales desde los secrets
+credentials_dict = st.secrets["gcp_service_account"]
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 client = gspread.authorize(credentials)
 
-# CARGAR HOJA
+# ABRIR LA HOJA DE CÁLCULO Y CARGAR LA PESTAÑA DE PROYECCIONES
 sheet = client.open("Proyecciones").worksheet("proyeccion_final")
 df = pd.DataFrame(sheet.get_all_records())
 
-# VALIDACIÓN
+# VALIDACIÓN DE LA DATA
 if df.empty:
     st.warning("La hoja 'proyeccion_final' está vacía o no se pudo cargar.")
     st.stop()
 
-# FILTROS
+# FILTROS INTERACTIVOS
 col1, col2 = st.columns(2)
 with col1:
     min_util = st.slider("Filtrar por utilidad mínima ($)", 0, int(df["Utilidad Anual Estimada"].max()), 500000)
@@ -40,9 +41,10 @@ filtrados = df[filtro]
 st.subheader(f"📊 Productos sugeridos: {len(filtrados)}")
 st.dataframe(filtrados, use_container_width=True)
 
-# RESUMEN
+# RESUMEN NUMÉRICO
 total_utilidad = filtrados["Utilidad Anual Estimada"].sum()
 total_productos = filtrados["Proyección Anual Estimada"].sum()
+
 st.markdown(f"""
 ### 📈 Resumen General:
 - 🧮 Total proyectado a importar: **{int(total_productos):,} unidades**
