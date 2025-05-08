@@ -1,28 +1,29 @@
 import streamlit as st
 import pandas as pd
 import gspread
-import json
 from oauth2client.service_account import ServiceAccountCredentials
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="Proyección Importación Sportiva", layout="wide")
 st.title("📦 Proyección de Importación Sportiva 2025")
 
-# CONEXIÓN A GOOGLE SHEETS USANDO st.secrets["gcp_service_account"]
+# AUTENTICACIÓN USANDO SECRETO: gcp_service_account
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials_dict = st.secrets["gcp_service_account"]
-credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+    st.secrets["gcp_service_account"], scope
+)
 client = gspread.authorize(credentials)
 
-# ABRIR LA HOJA DE CÁLCULO Y CARGAR LA PESTAÑA DE PROYECCIONES
+# CARGA DE DATOS DESDE GOOGLE SHEETS
 sheet = client.open("Proyecciones").worksheet("proyeccion_final")
 df = pd.DataFrame(sheet.get_all_records())
 
-# CONVERSIÓN A NÚMERO PARA FILTRAR
+# CONVERSIÓN A NÚMEROS
 df["Utilidad Anual Estimada"] = pd.to_numeric(df["Utilidad Anual Estimada"], errors="coerce")
 df["Margen Promedio (%)"] = pd.to_numeric(df["Margen Promedio (%)"], errors="coerce")
+df["Proyección Anual Estimada"] = pd.to_numeric(df["Proyección Anual Estimada"], errors="coerce")
 
-# VALIDACIÓN
+# VALIDACIÓN DE CONTENIDO
 if df.empty:
     st.warning("La hoja 'proyeccion_final' está vacía o no se pudo cargar.")
     st.stop()
@@ -38,14 +39,13 @@ with col2:
 filtro = (df["Utilidad Anual Estimada"] >= min_util) & (df["Margen Promedio (%)"] >= min_margen)
 filtrados = df[filtro]
 
-# MOSTRAR RESULTADOS
+# MOSTRAR DATOS FILTRADOS
 st.subheader(f"📊 Productos sugeridos: {len(filtrados)}")
 st.dataframe(filtrados, use_container_width=True)
 
-# RESUMEN
+# RESUMEN FINAL
 total_utilidad = filtrados["Utilidad Anual Estimada"].sum()
 total_productos = filtrados["Proyección Anual Estimada"].sum()
-
 st.markdown(f"""
 ### 📈 Resumen General:
 - 🧮 Total proyectado a importar: **{int(total_productos):,} unidades**
