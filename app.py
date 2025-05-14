@@ -37,6 +37,9 @@ ventas_df['Cantidad'] = pd.to_numeric(ventas_df['Cantidad'], errors='coerce').fi
 ventas_df['Venta'] = ventas_df['Precio Neto Unitario'] * ventas_df['Cantidad']
 ventas_df['Mes'] = ventas_df['Fecha'].dt.to_period('M')
 
+ventas_df = ventas_df[ventas_df['SKU'].astype(str).str.strip() != '']
+ventas_df['SKU'] = ventas_df['SKU'].astype(str)
+
 ultimo_año = ventas_df['Año'].max()
 ventas_anuales = ventas_df[ventas_df['Año'] == ultimo_año].groupby(['SKU', 'Producto / Servicio']).agg(
     Venta_Anual=('Venta', 'sum')
