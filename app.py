@@ -107,14 +107,19 @@ with st.expander("📅 Análisis estacional por año"):
 with st.expander("🛒 Selección de productos"):
     orden_df = filtros[['SKU', 'Producto / Servicio', 'Venta_Anual', 'Recomendacion_Compra']].copy()
     orden_df = orden_df.rename(columns={'Venta_Anual': 'Ventas Últ. Año', 'Recomendacion_Compra': 'Cant. Recomendada'})
-    orden_df['Incluir'] = False
+    orden_df['Incluir'] = False  # Inicializa la columna 'Incluir' como False
 
+    # Usa st.data_editor para permitir la edición
     tabla = st.data_editor(
         orden_df,
         column_config={"Incluir": st.column_config.CheckboxColumn("✔ Incluir")},
         num_rows="dynamic"
     )
+
+    # Filtra los productos seleccionados
     seleccionados = tabla[tabla['Incluir'] == True]
+
+    # Muestra los productos seleccionados
     st.write(f"Productos seleccionados: {len(seleccionados)}")
     st.dataframe(seleccionados)
 
