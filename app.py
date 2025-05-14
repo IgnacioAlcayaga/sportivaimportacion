@@ -95,11 +95,7 @@ with st.expander("🚨 Alertas de stock y recomendaciones"):
     alertas = []
     for _, row in filtros.iterrows():
         sku = row['SKU']
-        demanda_mensual = row['Demanda_Proyectada'] / 12
-        if isinstance(demanda_mensual, pd.Series):
-            demanda_mensual = float(demanda_mensual.iloc[0]) if not demanda_mensual.empty else 0
-        elif isinstance(demanda_mensual, pd.DataFrame):
-            demanda_mensual = float(demanda_mensual.values[0][0])
+        demanda_mensual = float(row['Demanda_Proyectada']) / 12 if row['Demanda_Proyectada'] > 0 else 0
         cobertura = stock_actual.get(sku, 0)
         lead_time_meses = lead_times.get(sku, 30) / 30
         cobertura_meses = cobertura / demanda_mensual if demanda_mensual > 0 else 0
