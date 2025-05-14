@@ -88,6 +88,53 @@ with st.expander("📅 Análisis estacional por año"):
     st.dataframe(pivot_ano.style.format("{:,.0f}"))
     st.line_chart(pivot_ano)
 
+with st.expander("🛒 Selección de productos"):
+    orden_df = filtros[['SKU', 'Producto / Servicio', 'Venta_Anual', 'Recomendacion_Compra']].copy()
+    orden_df = orden_df.rename(columns={'Venta_Anual': 'Ventas Últ. Año', 'Recomendacion_Compra': 'Cant. Recomendada'})
+    orden_df['Incluir'] = False
+
+    tabla = st.data_editor(
+        orden_df,
+        column_config={"Incluir": st.column_config.CheckboxColumn("✔ Incluir")},
+        num_rows="dynamic"
+    )
+    seleccionados = tabla[tabla['Incluir'] == True]
+    st.write(f"Productos seleccionados: {len(seleccionados)}")
+    st.dataframe(seleccionados)
+
+    if not seleccionados.empty:
+        st.subheader("⬇ Exportar orden")
+        df_export = seleccionados.drop(columns=['Incluir'])
+        csv = df_export.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar CSV", csv, "orden_de_compra.csv", "text/csv")
+
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df_export.to_excel(writer, index=False, sheet_name='Orden')
+        st.download_button("📥 Descargar Excel", buffer.getvalue(), "orden_de_compra.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+with st.expander("💰 Top 5 Productos por Utilidad"):
+    top5 = ventas_anuales.nlargest(5, 'Utilidad_Anual')
+    chart_bar = alt.Chart(top5).mark_bar().encode(
+        x=alt.X('Producto / Servicio:N', sort='-y'),
+        y='Utilidad_Anual:Q',
+        tooltip=['SKU', 'Utilidad_Anual', 'Margen_%']
+    )
+    st.altair_chart(chart_bar, use_container_width=True)
+
+with st.expander("📊 Margen vs. Volumen de Venta"):
+    scatter = alt.Chart(ventas_anuales).mark_circle(size=60).encode(
+        x='Venta_Anual:Q',
+        y='Margen_%:Q',
+        tooltip=['SKU', 'Producto / Servicio', 'Venta_Anual', 'Margen_%', 'Utilidad_Anual'],
+        color=alt.condition(
+            alt.datum["Margen_%"] > margen_min,
+            alt.value("orange"),
+            alt.value("gray")
+        )
+    ).interactive()
+    st.altair_chart(scatter, use_container_width=True)
+
 with st.expander("🚨 Alertas de stock y recomendaciones"):
     stock_actual = pd.Series(np.random.randint(0, 100, len(filtros)), index=filtros['SKU'])
     lead_times = {}  # completar si se desea automatizar con proveedores
