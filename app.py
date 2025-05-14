@@ -71,6 +71,11 @@ ventas_anuales['Utilidad_Anual'] = ventas_anuales['Venta_Anual'] - ventas_anuale
 ventas_anuales['Margen_%'] = round(ventas_anuales['Utilidad_Anual'] / ventas_anuales['Venta_Anual'] * 100, 1)
 ventas_anuales['Recomendacion_Compra'] = ventas_anuales['Demanda_Proyectada'] + ventas_anuales['Stock_Seguridad']
 
+# DEFINIR FILTROS PARA STREAMLIT
+st.sidebar.header("🔍 Filtros")
+margen_min = st.sidebar.slider("Margen mínimo (%)", 0, 100, 0)
+util_min = st.sidebar.number_input("Utilidad mínima", 0, step=1000)
+venta_min = st.sidebar.number_input("Venta mínima", 0, step=1000)
 
 filtros = ventas_anuales[
     (ventas_anuales['Margen_%'] >= margen_min) &
