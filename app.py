@@ -9,6 +9,7 @@ from google.oauth2.service_account import Credentials
 # CONFIGURACIÓN
 st.set_page_config(page_title="📊 Sistema de Compras - Sportiva", layout="wide")
 st.title("🧠 Sistema Inteligente de Decisión de Compras - Sportiva")
+st.write("🔐 Claves en secrets:", list(st.secrets.keys()))
 
 # VALIDACIÓN DE SECRETS
 if "gcp_service_account" not in st.secrets or "gsheets_url" not in st.secrets:
