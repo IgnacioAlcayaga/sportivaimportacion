@@ -40,12 +40,24 @@ ventas_df['Mes'] = ventas_df['Fecha'].dt.to_period('M')
 ventas_df = ventas_df[ventas_df['SKU'].astype(str).str.strip() != '']
 ventas_df['SKU'] = ventas_df['SKU'].astype(str)
 
+# PROMEDIO PONDERADO DE DEMANDA
+ponderaciones = {
+    año: peso for año, peso in zip(
+        sorted(ventas_df['Año'].dropna().unique(), reverse=True),
+        [0.6, 0.3, 0.1]
+    )
+}
+ventas_df['Ponderacion'] = ventas_df['Año'].map(ponderaciones)
+ventas_df['Venta_Ponderada'] = ventas_df['Venta'] * ventas_df['Ponderacion']
+ventas_ponderadas = ventas_df.groupby(['SKU', 'Producto / Servicio'])['Venta_Ponderada'].sum().reset_index()
+
 ultimo_año = ventas_df['Año'].max()
 ventas_anuales = ventas_df[ventas_df['Año'] == ultimo_año].groupby(['SKU', 'Producto / Servicio']).agg(
     Venta_Anual=('Venta', 'sum')
 ).reset_index()
 
-ventas_anuales['Demanda_Proyectada'] = ventas_anuales['Venta_Anual']
+ventas_anuales = ventas_anuales.merge(ventas_ponderadas, on=['SKU', 'Producto / Servicio'], how='left')
+ventas_anuales['Demanda_Proyectada'] = ventas_anuales['Venta_Ponderada']
 
 Z = 1.65
 stds = ventas_df.groupby('SKU')['Venta'].std().fillna(0)
@@ -53,16 +65,12 @@ ventas_anuales['Stock_Seguridad'] = ventas_anuales['SKU'].map(lambda x: round(Z 
 
 costos = dict(zip(ventas_anuales['SKU'], np.random.randint(3000, 7000, len(ventas_anuales))))
 ventas_anuales['Costo_Unitario'] = ventas_anuales['SKU'].map(costos)
-ventas_anuales['Unidades'] = ventas_anuales['Venta_Anual'] / ventas_anuales['Costo_Unitario']
+ventas_anuales['Unidades'] = ventas_anuales['Demanda_Proyectada'] / ventas_anuales['Costo_Unitario']
 ventas_anuales['Costo_Total'] = ventas_anuales['Unidades'] * ventas_anuales['Costo_Unitario']
 ventas_anuales['Utilidad_Anual'] = ventas_anuales['Venta_Anual'] - ventas_anuales['Costo_Total']
 ventas_anuales['Margen_%'] = round(ventas_anuales['Utilidad_Anual'] / ventas_anuales['Venta_Anual'] * 100, 1)
 ventas_anuales['Recomendacion_Compra'] = ventas_anuales['Demanda_Proyectada'] + ventas_anuales['Stock_Seguridad']
 
-st.sidebar.header("🔍 Filtros")
-margen_min = st.sidebar.slider("Margen mínimo (%)", 0, 100, 0)
-util_min = st.sidebar.number_input("Utilidad mínima", 0, step=1000)
-venta_min = st.sidebar.number_input("Venta mínima", 0, step=1000)
 
 filtros = ventas_anuales[
     (ventas_anuales['Margen_%'] >= margen_min) &
