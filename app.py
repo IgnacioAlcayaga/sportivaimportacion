@@ -150,7 +150,10 @@ with st.expander("🚨 Alertas de stock y recomendaciones"):
             demanda_mensual = float(demanda_valor) / 12 if float(demanda_valor) > 0 else 0
         except:
             demanda_mensual = 0
-        cobertura = float(stock_actual.get(sku, 0))
+        try:
+            cobertura = float(stock_actual.loc[sku])
+        except:
+            cobertura = 0
         try:
             lead_time_meses = float(lead_times.get(sku, 30)) / 30
         except:
