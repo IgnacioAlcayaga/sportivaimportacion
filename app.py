@@ -147,16 +147,16 @@ with st.expander("🚨 Alertas de stock y recomendaciones"):
         sku = row['SKU']
         demanda_valor = row['Demanda_Proyectada']
         try:
-            demanda_mensual = float(demanda_valor) / 12 if demanda_valor > 0 else 0
+            demanda_mensual = float(demanda_valor) / 12 if float(demanda_valor) > 0 else 0
         except:
             demanda_mensual = 0
-        cobertura = stock_actual.get(sku, 0)
+        cobertura = float(stock_actual.get(sku, 0))
         try:
             lead_time_meses = float(lead_times.get(sku, 30)) / 30
         except:
             lead_time_meses = 1
 
-        cobertura_meses = float(cobertura) / demanda_mensual if demanda_mensual > 0 else 0
+        cobertura_meses = cobertura / demanda_mensual if demanda_mensual > 0 else 0
 
         if cobertura_meses < lead_time_meses:
             alertas.append((sku, row['Producto / Servicio'], cobertura_meses, lead_time_meses))
