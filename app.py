@@ -9,19 +9,21 @@ from google.oauth2.service_account import Credentials
 # CONFIGURACIÓN
 st.set_page_config(page_title="📊 Sistema de Compras - Sportiva", layout="wide")
 st.title("🧠 Sistema Inteligente de Decisión de Compras - Sportiva")
+
+# DEBUG: mostrar claves disponibles
 st.write("🔐 Claves en secrets:", list(st.secrets.keys()))
 st.write("✅ gsheets_url:", st.secrets.get("gsheets_url", "NO DETECTADO"))
 
 # VALIDACIÓN DE SECRETS
-if "gcp_service_account" not in st.secrets or "gsheets_url" not in st.secrets:
-    st.error("❌ Faltan claves en st.secrets. Asegúrate de definir 'gcp_service_account' y 'gsheets_url'.")
+if "gcp_service_account" not in st.secrets:
+    st.error("❌ Faltan credenciales para conectarse a Google Sheets.")
     st.stop()
 
-# CONEXIÓN GOOGLE SHEETS
+# CONEXIÓN GOOGLE SHEETS USANDO CLAVE DEL ARCHIVO
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
 client = gspread.authorize(credentials)
-sheet = client.open_by_url(st.secrets["gsheets_url"])
+sheet = client.open_by_key("18XxehVk4sP8uPIfDoDyX1q_wFpkTA2e-Mf-wG2RcK5w")
 worksheets = [ws for ws in sheet.worksheets() if ws.title.startswith("ventas_")]
 
 # CONSOLIDAR DATOS
@@ -34,6 +36,8 @@ for ws in worksheets:
         df['Año'] = None
     dfs.append(df)
 ventas_df = pd.concat(dfs, ignore_index=True)
+
+st.success("✅ Conexión y carga de datos exitosa.")
 
 # PARSE FECHA Y CREAR COLUMNAS ÚTILES
 ventas_df['Fecha'] = pd.to_datetime(ventas_df['Fecha de Emisión'], errors='coerce')
