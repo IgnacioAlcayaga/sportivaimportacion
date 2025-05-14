@@ -10,6 +10,11 @@ from google.oauth2.service_account import Credentials
 st.set_page_config(page_title="📊 Sistema de Compras - Sportiva", layout="wide")
 st.title("🧠 Sistema Inteligente de Decisión de Compras - Sportiva")
 
+# VALIDACIÓN DE SECRETS
+if "gcp_service_account" not in st.secrets or "gsheets_url" not in st.secrets:
+    st.error("❌ Faltan claves en st.secrets. Asegúrate de definir 'gcp_service_account' y 'gsheets_url'.")
+    st.stop()
+
 # CONEXIÓN GOOGLE SHEETS
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
