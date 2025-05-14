@@ -78,7 +78,7 @@ with st.expander("📅 Análisis estacional por año"):
     df_filtrado['Mes_Num'] = df_filtrado['Fecha'].dt.month
     df_filtrado['Mes_Texto'] = df_filtrado['Fecha'].dt.strftime('%b')
 
-    resumen_estacional = df_filtrado.groupby(['Año', 'Mes_Num', 'Mes_Texto'])["Venta"].sum().reset_index()
+    resumen_estacional = df_filtrado.groupby(['Año', 'Mes_Num', 'Mes_Texto'])['Venta'].sum().reset_index()
     resumen_estacional = resumen_estacional.sort_values(['Año', 'Mes_Num'])
 
     pivot_ano = resumen_estacional.pivot(index='Mes_Num', columns='Año', values='Venta').fillna(0)
@@ -97,12 +97,12 @@ with st.expander("🚨 Alertas de stock y recomendaciones"):
         sku = row['SKU']
         demanda_mensual = row['Demanda_Proyectada'] / 12
         if isinstance(demanda_mensual, pd.Series):
-            demanda_mensual = demanda_mensual.iloc[0] if not demanda_mensual.empty else 0
+            demanda_mensual = demanda_mensual.item() if len(demanda_mensual) == 1 else demanda_mensual.iloc[0] if not demanda_mensual.empty else 0
         cobertura = stock_actual.get(sku, 0)
         lead_time_meses = lead_times.get(sku, 30) / 30
         cobertura_meses = cobertura / demanda_mensual if demanda_mensual > 0 else 0
 
-        if cobertura_meses < lead_time_meses:
+        if float(cobertura_meses) < float(lead_time_meses):
             alertas.append((sku, row['Producto / Servicio'], cobertura_meses, lead_time_meses))
 
     if alertas:
